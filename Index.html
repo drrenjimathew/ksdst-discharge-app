@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>KSDST Discharge Summary Generator – Pilot</title>
+
+<style>
+:root{
+  --bg:#0b1220; --card:#101a2f; --muted:#8ea3c7; --text:#e8f0ff;
+  --accent:#4aa3ff; --danger:#ff5c7a; --ok:#27d39f; --line:#223152;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+body{
+  margin:0;
+  font-family:var(--sans);
+  background:linear-gradient(180deg,#070c18,#0b1220 40%,#070c18);
+  color:var(--text);
+}
+header{
+  padding:18px;
+  border-bottom:1px solid var(--line);
+  background:rgba(16,26,47,.6);
+}
+header h1{ margin:0; font-size:18px; }
+header p{ margin:6px 0 0; color:var(--muted); font-size:13px; }
+
+.wrap{ max-width:1200px; margin:0 auto; padding:18px; }
+.grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:900px){ .grid{ grid-template-columns:1fr; } }
+
+.card{
+  background:rgba(16,26,47,.85);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+}
+.card h2{ margin:0 0 10px; font-size:14px; }
+
+textarea{
+  width:100%;
+  min-height:420px;
+  resize:vertical;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#071027;
+  color:var(--text);
+  padding:12px;
+  font-family:var(--mono);
+  font-size:12.5px;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:10px;
+}
+button{
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#0b1836;
+  color:var(--text);
+  padding:10px 12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.primary{ background:rgba(74,163,255,.18); border-color:rgba(74,163,255,.5); }
+.danger{ background:rgba(255,92,122,.12); border-color:rgba(255,92,122,.45); }
+
+.status{ margin-left:auto; font-size:12px; color:var(--muted); }
+.status strong{ color:var(--ok); }
+.warn strong{ color:var(--danger); }
+
+.footer-note{ font-size:12px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>KSDST Discharge Summary Generator (Pilot)</h1>
+  <p>Clinical notes → Azure AI → KSDST discharge summary</p>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <div class="card">
+      <h2>Clinical Summary Input</h2>
+      <textarea id="inputBox" placeholder="Paste clinical summary here..."></textarea>
+
+      <div class="row">
+        <button class="primary" id="btnGenerate">Generate KSDST</button>
+        <button class="danger" id="btnClear">Clear</button>
+        <span class="status" id="status">Ready</span>
+      </div>
+
+      <div class="footer-note">
+        Pilot tool. Output must be reviewed by the treating team.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Generated KSDST Output</h2>
+      <textarea id="outputBox" readonly placeholder="Generated discharge summary appears here..."></textarea>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const BACKEND_URL =
+  "https://ksdst-back-gateway-hgg4ecfjgrcufha3.southindia-01.azurewebsites.net/api/generateDischargeSummary";
+
+function setStatus(msg, ok=true){
+  const el = document.getElementById("status");
+  el.className = "status" + (ok ? "" : " warn");
+  el.innerHTML = ok
+    ? `<strong>✓</strong> ${msg}`
+    : `<strong>!</strong> ${msg}`;
+}
+
+document.getElementById("btnGenerate").addEventListener("click", async () => {
+  const text = document.getElementById("inputBox").value.trim();
+  if(!text){
+    setStatus("Paste clinical summary first", false);
+    return;
+  }
+
+  setStatus("Generating via Azure AI...");
+
+  try{
+    const response = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clinicalText: text })
+    });
+
+    if(!response.ok){
+      throw new Error("HTTP " + response.status);
+    }
+
+    const data = await response.json();
+    document.getElementById("outputBox").value = data.summary || "";
+    setStatus("Generated");
+
+  }catch(err){
+    console.error(err);
+    setStatus("Failed to fetch", false);
+  }
+});
+
+document.getElementById("btnClear").addEventListener("click", () => {
+  document.getElementById("inputBox").value = "";
+  document.getElementById("outputBox").value = "";
+  setStatus("Cleared");
+});
+</script>
+
+</body>
+</html>
